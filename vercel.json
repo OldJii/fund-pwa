@@ -10,22 +10,22 @@
       "use": "@vercel/static"
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/api/fund",
-      "dest": "/api/fund.py"
+      "source": "/api/fund",
+      "destination": "/api/fund.py"
     },
     {
-      "src": "/api/market",
-      "dest": "/api/market.py"
+      "source": "/api/market",
+      "destination": "/api/market.py"
     },
     {
-      "src": "/api/sector",
-      "dest": "/api/sector.py"
+      "source": "/api/sector",
+      "destination": "/api/sector.py"
     },
     {
-      "src": "/(.*)",
-      "dest": "/public/$1"
+      "source": "/(.*)",
+      "destination": "/public/$1"
     }
   ],
   "headers": [
