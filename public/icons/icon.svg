@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="32" fill="#1e3a5f"/>
+  <path d="M40 140 L76 80 L112 110 L152 50" stroke="#3b82f6" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="76" cy="80" r="8" fill="#16a34a"/>
+  <circle cx="112" cy="110" r="8" fill="#dc2626"/>
+  <circle cx="152" cy="50" r="8" fill="#3b82f6"/>
+  <text x="96" y="170" text-anchor="middle" fill="white" font-family="Arial" font-size="24" font-weight="bold">úÑ</text>
+</svg>

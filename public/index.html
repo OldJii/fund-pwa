@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0f0f0f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icons/icon.svg">
+  <title>基金盯盘</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --bg-primary: #0f0f0f;
+      --bg-secondary: #1a1a1a;
+      --bg-card: #1e1e1e;
+      --text-primary: #ffffff;
+      --text-secondary: #999999;
+      --text-muted: #666666;
+      --rise: #dc2626;
+      --rise-bg: rgba(220, 38, 38, 0.15);
+      --fall: #16a34a;
+      --fall-bg: rgba(22, 163, 74, 0.15);
+      --border: #2a2a2a;
+      --accent: #3b82f6;
+      --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* 顶部导航 */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    
+    .header-title {
+      font-size: 17px;
+      font-weight: 600;
+    }
+    
+    .header-action {
+      position: absolute;
+      right: 16px;
+      font-size: 20px;
+      cursor: pointer;
+      opacity: 0.8;
+    }
+    
+    /* 内容区域 */
+    .content {
+      padding-top: calc(44px + env(safe-area-inset-top, 0px));
+      padding-bottom: calc(60px + var(--safe-area-bottom));
+      min-height: 100vh;
+    }
+    
+    .view {
+      display: none;
+      padding: 16px;
+    }
+    
+    .view.active {
+      display: block;
+    }
+    
+    /* 底部导航 */
+    .tab-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: calc(60px + var(--safe-area-bottom));
+      background: var(--bg-secondary);
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      padding-top: 8px;
+      padding-bottom: var(--safe-area-bottom);
+      border-top: 1px solid var(--border);
+      z-index: 100;
+    }
+    
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      opacity: 0.5;
+      transition: opacity 0.2s;
+      padding: 0 12px;
+    }
+    
+    .tab-item.active {
+      opacity: 1;
+    }
+    
+    .tab-item.active .tab-icon {
+      color: var(--accent);
+    }
+    
+    .tab-item.active .tab-label {
+      color: var(--accent);
+    }
+    
+    .tab-icon {
+      font-size: 22px;
+    }
+    
+    .tab-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+    
+    /* 资产概览卡片 */
+    .asset-card {
+      background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    
+    .asset-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .asset-amount {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    
+    .asset-change {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .asset-change-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    
+    .asset-change-value {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    
+    .asset-change-value.rise {
+      color: var(--rise);
+    }
+    
+    .asset-change-value.fall {
+      color: var(--fall);
+    }
+    
+    /* 列表卡片 */
+    .card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    
+    .card-badge {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    
+    /* 基金列表项 */
+    .fund-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .fund-item:last-child {
+      border-bottom: none;
+    }
+    
+    .fund-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .fund-name {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    
+    .fund-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      display: flex;
+      gap: 8px;
+    }
+    
+    .fund-amount {
+      text-align: right;
+      margin-right: 12px;
+    }
+    
+    .fund-amount-value {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 2px;
+    }
+    
+    .fund-amount-profit {
+      font-size: 12px;
+    }
+    
+    .fund-change {
+      min-width: 70px;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    
+    .fund-change.rise {
+      background: var(--rise-bg);
+      color: var(--rise);
+    }
+    
+    .fund-change.fall {
+      background: var(--fall-bg);
+      color: var(--fall);
+    }
+    
+    /* 指数卡片 */
+    .index-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    
+    .index-card {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    
+    .index-name {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    
+    .index-value {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    
+    .index-change {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .index-change.rise {
+      color: var(--rise);
+    }
+    
+    .index-change.fall {
+      color: var(--fall);
+    }
+    
+    /* 板块列表 */
+    .sector-item {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .sector-item:last-child {
+      border-bottom: none;
+    }
+    
+    .sector-name {
+      flex: 1;
+      font-size: 15px;
+    }
+    
+    .sector-flow {
+      text-align: right;
+      margin-right: 12px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    
+    .sector-change {
+      min-width: 65px;
+      text-align: center;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    
+    .sector-change.rise {
+      background: var(--rise-bg);
+      color: var(--rise);
+    }
+    
+    .sector-change.fall {
+      background: var(--fall-bg);
+      color: var(--fall);
+    }
+    
+    /* 板块选择器 */
+    .sector-tabs {
+      display: flex;
+      overflow-x: auto;
+      gap: 8px;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .sector-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .sector-tab {
+      flex-shrink: 0;
+      padding: 8px 16px;
+      background: var(--bg-card);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .sector-tab.active {
+      background: var(--accent);
+      color: white;
+    }
+    
+    /* 输入表单 */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .form-input {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 15px;
+      color: var(--text-primary);
+      outline: none;
+    }
+    
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+    
+    .form-input:focus {
+      border-color: var(--accent);
+    }
+    
+    .form-btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    
+    .form-btn:active {
+      opacity: 0.8;
+    }
+    
+    /* 删除按钮 */
+    .delete-btn {
+      background: transparent;
+      border: 1px solid var(--rise);
+      color: var(--rise);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    
+    /* 加载状态 */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+      color: var(--text-secondary);
+    }
+    
+    .loading::after {
+      content: '';
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-left: 10px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+    
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    .empty-state-text {
+      font-size: 14px;
+    }
+    
+    /* 成交量表格 */
+    .volume-table {
+      width: 100%;
+      font-size: 13px;
+    }
+    
+    .volume-table th,
+    .volume-table td {
+      padding: 10px 8px;
+      text-align: right;
+    }
+    
+    .volume-table th {
+      color: var(--text-secondary);
+      font-weight: 500;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .volume-table td {
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .volume-table tr:last-child td {
+      border-bottom: none;
+    }
+    
+    .volume-table td:first-child,
+    .volume-table th:first-child {
+      text-align: left;
+    }
+    
+    /* 板块基金选择器 */
+    .category-section {
+      margin-bottom: 20px;
+    }
+    
+    .category-title {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 10px;
+      padding-left: 4px;
+    }
+    
+    .category-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    
+    .category-btn {
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .category-btn:active {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    
+    /* Toast 提示 */
+    .toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    
+    .toast.show {
+      opacity: 1;
+    }
+
+    /* 刷新按钮 */
+    .refresh-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px;
+    }
+    
+    .refresh-btn.spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    /* 自选基金详情 */
+    .fund-detail {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .fund-estimate {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    
+    .fund-streak {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--bg-secondary);
+    }
+    
+    .fund-streak.up {
+      color: var(--rise);
+    }
+    
+    .fund-streak.down {
+      color: var(--fall);
+    }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <header class="header">
+    <span class="header-title" id="headerTitle">我的持仓</span>
+    <span class="header-action" id="refreshBtn" onclick="refreshCurrentView()">↻</span>
+  </header>
+  
+  <!-- 内容区域 -->
+  <main class="content">
+    <!-- 持仓视图 -->
+    <div id="view-holdings" class="view active">
+      <div class="asset-card">
+        <div class="asset-label">账户资产 👁</div>
+        <div class="asset-amount" id="totalAsset">¥0.00</div>
+        <div class="asset-change">
+          <span class="asset-change-label">当日收益</span>
+          <span class="asset-change-value" id="dailyProfit">¥0.00</span>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <div class="form-row">
+          <input type="text" class="form-input" id="holdingCode" placeholder="基金代码" maxlength="6">
+          <input type="number" class="form-input" id="holdingAmount" placeholder="持有金额">
+          <button class="form-btn" onclick="addHolding()">添加</button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">持仓列表</span>
+          <span class="card-badge" id="holdingCount">0只</span>
+        </div>
+        <div id="holdingList">
+          <div class="empty-state">
+            <div class="empty-state-icon">💰</div>
+            <div class="empty-state-text">暂无持仓，请添加基金</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 自选视图 -->
+    <div id="view-watchlist" class="view">
+      <div class="form-group">
+        <div class="form-row">
+          <input type="text" class="form-input" id="watchCode" placeholder="输入基金代码添加自选" maxlength="6">
+          <button class="form-btn" onclick="addToWatchlist()">添加</button>
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">自选基金</span>
+          <span class="card-badge" id="watchlistCount">0只</span>
+        </div>
+        <div id="watchlistContent">
+          <div class="empty-state">
+            <div class="empty-state-icon">⭐</div>
+            <div class="empty-state-text">暂无自选基金</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 行情视图 -->
+    <div id="view-market" class="view">
+      <div class="index-grid" id="indexGrid">
+        <div class="loading">加载中</div>
+      </div>
+      
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">成交量趋势</span>
+          <span class="card-badge">近7日</span>
+        </div>
+        <div id="volumeContent">
+          <div class="loading">加载中</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 板块视图 -->
+    <div id="view-sectors" class="view">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">行业板块</span>
+          <span class="card-badge" id="sectorCount">按涨跌幅排序</span>
+        </div>
+        <div id="sectorList">
+          <div class="loading">加载中</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 板块基金视图 -->
+    <div id="view-sector-funds" class="view">
+      <div id="sectorSelector"></div>
+      
+      <div class="card" id="sectorFundsCard" style="display: none;">
+        <div class="card-header">
+          <span class="card-title" id="sectorFundsTitle">板块基金</span>
+          <span class="card-badge" id="sectorFundsCount">0只</span>
+        </div>
+        <div id="sectorFundsList">
+          <div class="loading">加载中</div>
+        </div>
+      </div>
+    </div>
+  </main>
+  
+  <!-- 底部导航 -->
+  <nav class="tab-bar">
+    <div class="tab-item active" data-view="holdings">
+      <span class="tab-icon">💰</span>
+      <span class="tab-label">持仓</span>
+    </div>
+    <div class="tab-item" data-view="watchlist">
+      <span class="tab-icon">⭐</span>
+      <span class="tab-label">自选</span>
+    </div>
+    <div class="tab-item" data-view="market">
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">行情</span>
+    </div>
+    <div class="tab-item" data-view="sectors">
+      <span class="tab-icon">📈</span>
+      <span class="tab-label">板块</span>
+    </div>
+    <div class="tab-item" data-view="sector-funds">
+      <span class="tab-icon">🔍</span>
+      <span class="tab-label">板块基金</span>
+    </div>
+  </nav>
+  
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+  
+  <script>
+    // =============== 配置 ===============
+    const API_BASE = '/api';
+    
+    // =============== 状态管理 ===============
+    let currentView = 'holdings';
+    let holdings = JSON.parse(localStorage.getItem('holdings') || '{}');
+    let watchlist = JSON.parse(localStorage.getItem('watchlist') || '{}');
+    let sectorListCache = null;
+    
+    // =============== 工具函数 ===============
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+    
+    function formatNumber(num) {
+      return num.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    
+    function getChangeClass(value) {
+      const num = parseFloat(value);
+      if (isNaN(num)) return '';
+      return num >= 0 ? 'rise' : 'fall';
+    }
+    
+    function saveHoldings() {
+      localStorage.setItem('holdings', JSON.stringify(holdings));
+    }
+    
+    function saveWatchlist() {
+      localStorage.setItem('watchlist', JSON.stringify(watchlist));
+    }
+    
+    // =============== API 调用 ===============
+    async function fetchAPI(endpoint, params = {}) {
+      const url = new URL(endpoint, window.location.origin);
+      Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+      
+      try {
+        const response = await fetch(url);
+        return await response.json();
+      } catch (error) {
+        console.error('API Error:', error);
+        return { success: false, message: error.message };
+      }
+    }
+    
+    // =============== 视图切换 ===============
+    document.querySelectorAll('.tab-item').forEach(tab => {
+      tab.addEventListener('click', () => {
+        const viewId = tab.dataset.view;
+        switchView(viewId);
+      });
+    });
+    
+    function switchView(viewId) {
+      // 更新标签状态
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-view="${viewId}"]`).classList.add('active');
+      
+      // 更新视图显示
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(`view-${viewId}`).classList.add('active');
+      
+      // 更新标题
+      const titles = {
+        'holdings': '我的持仓',
+        'watchlist': '自选基金',
+        'market': '市场行情',
+        'sectors': '板块行情',
+        'sector-funds': '板块基金'
+      };
+      document.getElementById('headerTitle').textContent = titles[viewId];
+      
+      currentView = viewId;
+      
+      // 加载视图数据
+      loadViewData(viewId);
+    }
+    
+    function loadViewData(viewId) {
+      switch(viewId) {
+        case 'holdings':
+          renderHoldings();
+          break;
+        case 'watchlist':
+          loadWatchlist();
+          break;
+        case 'market':
+          loadMarketData();
+          break;
+        case 'sectors':
+          loadSectors();
+          break;
+        case 'sector-funds':
+          loadSectorSelector();
+          break;
+      }
+    }
+    
+    function refreshCurrentView() {
+      const btn = document.getElementById('refreshBtn');
+      btn.classList.add('spinning');
+      
+      loadViewData(currentView);
+      
+      setTimeout(() => btn.classList.remove('spinning'), 1000);
+    }
+    
+    // =============== 持仓管理 ===============
+    async function addHolding() {
+      const code = document.getElementById('holdingCode').value.trim();
+      const amount = parseFloat(document.getElementById('holdingAmount').value);
+      
+      if (!code || code.length !== 6) {
+        showToast('请输入6位基金代码');
+        return;
+      }
+      
+      if (!amount || amount <= 0) {
+        showToast('请输入有效金额');
+        return;
+      }
+      
+      showToast('正在搜索基金...');
+      
+      const result = await fetchAPI(`${API_BASE}/fund`, { action: 'search', code });
+      
+      if (!result.success) {
+        showToast(result.message || '未找到基金');
+        return;
+      }
+      
+      holdings[code] = {
+        code,
+        name: result.fund_name,
+        fund_key: result.fund_key,
+        amount
+      };
+      
+      saveHoldings();
+      document.getElementById('holdingCode').value = '';
+      document.getElementById('holdingAmount').value = '';
+      
+      showToast(`已添加: ${result.fund_name}`);
+      renderHoldings();
+    }
+    
+    function removeHolding(code) {
+      if (confirm('确定删除该持仓?')) {
+        delete holdings[code];
+        saveHoldings();
+        renderHoldings();
+        showToast('已删除');
+      }
+    }
+    
+    async function renderHoldings() {
+      const list = document.getElementById('holdingList');
+      const codes = Object.keys(holdings);
+      
+      if (codes.length === 0) {
+        document.getElementById('totalAsset').textContent = '¥0.00';
+        document.getElementById('dailyProfit').textContent = '¥0.00';
+        document.getElementById('dailyProfit').className = 'asset-change-value';
+        document.getElementById('holdingCount').textContent = '0只';
+        list.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">💰</div>
+            <div class="empty-state-text">暂无持仓，请添加基金</div>
+          </div>
+        `;
+        return;
+      }
+      
+      document.getElementById('holdingCount').textContent = `${codes.length}只`;
+      list.innerHTML = '<div class="loading">加载中</div>';
+      
+      // 批量获取估值
+      const fundsParam = codes.map(c => `${c}:${holdings[c].fund_key}`).join(',');
+      const result = await fetchAPI(`${API_BASE}/fund`, { action: 'batch_valuation', funds: fundsParam });
+      
+      if (!result.success) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-state-text">加载失败: ${result.message}</div></div>`;
+        return;
+      }
+      
+      let totalAmount = 0;
+      let totalProfit = 0;
+      let html = '';
+      
+      result.data.forEach(val => {
+        const holding = holdings[val.code];
+        if (!holding) return;
+        
+        const changePercent = parseFloat(val.estimate_change) || 0;
+        const profit = holding.amount * changePercent / 100;
+        
+        totalAmount += holding.amount;
+        totalProfit += profit;
+        
+        const changeClass = getChangeClass(changePercent);
+        const profitSign = profit >= 0 ? '+' : '';
+        
+        html += `
+          <div class="fund-item">
+            <div class="fund-info">
+              <div class="fund-name">${holding.name}</div>
+              <div class="fund-meta">
+                <span>${holding.code}</span>
+                <span>${val.estimate_time}</span>
+              </div>
+            </div>
+            <div class="fund-amount">
+              <div class="fund-amount-value">¥${formatNumber(holding.amount)}</div>
+              <div class="fund-amount-profit ${changeClass}">${profitSign}¥${formatNumber(profit)}</div>
+            </div>
+            <div class="fund-change ${changeClass}">${val.estimate_change}</div>
+            <button class="delete-btn" onclick="removeHolding('${val.code}')" style="margin-left: 8px;">删除</button>
+          </div>
+        `;
+      });
+      
+      list.innerHTML = html;
+      
+      // 更新汇总
+      document.getElementById('totalAsset').textContent = `¥${formatNumber(totalAmount)}`;
+      document.getElementById('dailyProfit').textContent = `${totalProfit >= 0 ? '+' : ''}¥${formatNumber(totalProfit)}`;
+      document.getElementById('dailyProfit').className = `asset-change-value ${getChangeClass(totalProfit)}`;
+    }
+    
+    // =============== 自选管理 ===============
+    async function addToWatchlist() {
+      const code = document.getElementById('watchCode').value.trim();
+      
+      if (!code || code.length !== 6) {
+        showToast('请输入6位基金代码');
+        return;
+      }
+      
+      if (watchlist[code]) {
+        showToast('该基金已在自选中');
+        return;
+      }
+      
+      showToast('正在搜索基金...');
+      
+      const result = await fetchAPI(`${API_BASE}/fund`, { action: 'search', code });
+      
+      if (!result.success) {
+        showToast(result.message || '未找到基金');
+        return;
+      }
+      
+      watchlist[code] = {
+        code,
+        name: result.fund_name,
+        fund_key: result.fund_key
+      };
+      
+      saveWatchlist();
+      document.getElementById('watchCode').value = '';
+      
+      showToast(`已添加: ${result.fund_name}`);
+      loadWatchlist();
+    }
+    
+    function removeFromWatchlist(code) {
+      if (confirm('确定删除该自选?')) {
+        delete watchlist[code];
+        saveWatchlist();
+        loadWatchlist();
+        showToast('已删除');
+      }
+    }
+    
+    async function loadWatchlist() {
+      const container = document.getElementById('watchlistContent');
+      const codes = Object.keys(watchlist);
+      
+      if (codes.length === 0) {
+        document.getElementById('watchlistCount').textContent = '0只';
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⭐</div>
+            <div class="empty-state-text">暂无自选基金</div>
+          </div>
+        `;
+        return;
+      }
+      
+      document.getElementById('watchlistCount').textContent = `${codes.length}只`;
+      container.innerHTML = '<div class="loading">加载中</div>';
+      
+      // 批量获取估值
+      const fundsParam = codes.map(c => `${c}:${watchlist[c].fund_key}`).join(',');
+      const result = await fetchAPI(`${API_BASE}/fund`, { action: 'batch_valuation', funds: fundsParam });
+      
+      if (!result.success) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-text">加载失败: ${result.message}</div></div>`;
+        return;
+      }
+      
+      // 按估值排序
+      result.data.sort((a, b) => {
+        const aVal = parseFloat(a.estimate_change) || -999;
+        const bVal = parseFloat(b.estimate_change) || -999;
+        return bVal - aVal;
+      });
+      
+      let html = '';
+      result.data.forEach(val => {
+        const fund = watchlist[val.code];
+        if (!fund) return;
+        
+        const changeClass = getChangeClass(val.estimate_change);
+        const streakClass = val.streak_days >= 0 ? 'up' : 'down';
+        const streakText = val.streak_days >= 0 ? `连涨${val.streak_days}天` : `连跌${Math.abs(val.streak_days)}天`;
+        
+        html += `
+          <div class="fund-item">
+            <div class="fund-info">
+              <div class="fund-name">${fund.name}</div>
+              <div class="fund-meta">
+                <span>${fund.code}</span>
+                <span class="fund-estimate">${val.estimate_time}</span>
+                <span class="fund-streak ${streakClass}">${streakText}</span>
+              </div>
+            </div>
+            <div class="fund-change ${changeClass}">${val.estimate_change}</div>
+            <button class="delete-btn" onclick="removeFromWatchlist('${val.code}')" style="margin-left: 8px;">删除</button>
+          </div>
+        `;
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    // =============== 市场行情 ===============
+    async function loadMarketData() {
+      loadIndices();
+      loadVolume();
+    }
+    
+    async function loadIndices() {
+      const grid = document.getElementById('indexGrid');
+      grid.innerHTML = '<div class="loading">加载中</div>';
+      
+      const result = await fetchAPI(`${API_BASE}/market`, { action: 'indices' });
+      
+      if (!result.success || !result.data.length) {
+        grid.innerHTML = '<div class="empty-state"><div class="empty-state-text">暂无数据</div></div>';
+        return;
+      }
+      
+      let html = '';
+      result.data.forEach(idx => {
+        const changeClass = getChangeClass(idx.change_percent);
+        html += `
+          <div class="index-card">
+            <div class="index-name">${idx.name}</div>
+            <div class="index-value">${idx.value}</div>
+            <div class="index-change ${changeClass}">${idx.change_percent}</div>
+          </div>
+        `;
+      });
+      
+      grid.innerHTML = html;
+    }
+    
+    async function loadVolume() {
+      const container = document.getElementById('volumeContent');
+      container.innerHTML = '<div class="loading">加载中</div>';
+      
+      const result = await fetchAPI(`${API_BASE}/market`, { action: 'volume', days: 7 });
+      
+      if (!result.success || !result.data.length) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-text">暂无数据</div></div>';
+        return;
+      }
+      
+      let html = `
+        <table class="volume-table">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>总成交</th>
+              <th>沪市</th>
+              <th>深市</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      result.data.forEach(vol => {
+        html += `
+          <tr>
+            <td>${vol.date.slice(5)}</td>
+            <td>${vol.total_volume}</td>
+            <td>${vol.shanghai_volume}</td>
+            <td>${vol.shenzhen_volume}</td>
+          </tr>
+        `;
+      });
+      
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+    
+    // =============== 板块行情 ===============
+    async function loadSectors() {
+      const list = document.getElementById('sectorList');
+      list.innerHTML = '<div class="loading">加载中</div>';
+      
+      const result = await fetchAPI(`${API_BASE}/sector`, { action: 'performance' });
+      
+      if (!result.success || !result.data.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-state-text">暂无数据</div></div>';
+        return;
+      }
+      
+      let html = '';
+      result.data.slice(0, 50).forEach(sector => {
+        const changeClass = getChangeClass(sector.change_percent);
+        html += `
+          <div class="sector-item">
+            <div class="sector-name">${sector.name}</div>
+            <div class="sector-flow">主力: ${sector.main_flow}</div>
+            <div class="sector-change ${changeClass}">${sector.change_percent}</div>
+          </div>
+        `;
+      });
+      
+      list.innerHTML = html;
+    }
+    
+    // =============== 板块基金 ===============
+    async function loadSectorSelector() {
+      const container = document.getElementById('sectorSelector');
+      
+      if (sectorListCache) {
+        renderSectorSelector(sectorListCache);
+        return;
+      }
+      
+      container.innerHTML = '<div class="loading">加载中</div>';
+      
+      const result = await fetchAPI(`${API_BASE}/sector`, { action: 'list' });
+      
+      if (!result.success) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-text">加载失败</div></div>';
+        return;
+      }
+      
+      sectorListCache = result.data;
+      renderSectorSelector(result.data);
+    }
+    
+    function renderSectorSelector(data) {
+      const container = document.getElementById('sectorSelector');
+      
+      let html = '';
+      data.forEach(category => {
+        html += `
+          <div class="category-section">
+            <div class="category-title">${category.category}</div>
+            <div class="category-buttons">
+        `;
+        
+        category.sectors.forEach(sector => {
+          html += `<button class="category-btn" onclick="loadSectorFunds('${sector.code}', '${sector.name}')">${sector.name}</button>`;
+        });
+        
+        html += '</div></div>';
+      });
+      
+      container.innerHTML = html;
+    }
+    
+    async function loadSectorFunds(code, name) {
+      const card = document.getElementById('sectorFundsCard');
+      const list = document.getElementById('sectorFundsList');
+      const title = document.getElementById('sectorFundsTitle');
+      const count = document.getElementById('sectorFundsCount');
+      
+      card.style.display = 'block';
+      title.textContent = `${name}板块基金`;
+      list.innerHTML = '<div class="loading">加载中</div>';
+      
+      const result = await fetchAPI(`${API_BASE}/sector`, { action: 'funds', code });
+      
+      if (!result.success || !result.data.length) {
+        list.innerHTML = '<div class="empty-state"><div class="empty-state-text">暂无数据</div></div>';
+        count.textContent = '0只';
+        return;
+      }
+      
+      count.textContent = `${result.data.length}只`;
+      
+      let html = '';
+      result.data.slice(0, 50).forEach(fund => {
+        const changeClass = getChangeClass(fund.year_ytd);
+        html += `
+          <div class="fund-item">
+            <div class="fund-info">
+              <div class="fund-name">${fund.name}</div>
+              <div class="fund-meta">
+                <span>${fund.code}</span>
+                <span>${fund.type}</span>
+              </div>
+            </div>
+            <div class="fund-change ${changeClass}">${fund.year_ytd}</div>
+          </div>
+        `;
+      });
+      
+      list.innerHTML = html;
+    }
+    
+    // =============== 初始化 ===============
+    document.addEventListener('DOMContentLoaded', () => {
+      // 注册 Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js');
+      }
+      
+      // 加载初始视图
+      renderHoldings();
+    });
+  </script>
+</body>
+</html>

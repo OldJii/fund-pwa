@@ -1,0 +1,18 @@
+{
+  "name": "基金盯盘",
+  "short_name": "基金盯盘",
+  "description": "移动端基金盯盘工具",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#0f0f0f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
