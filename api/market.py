@@ -1,26 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-市场数据代理 API
-获取全球指数、成交量等市场数据
+市场数据代理 API - Vercel Serverless Function
 """
 
+from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
-import requests
 
-# 禁用 SSL 警告
+import requests
 import urllib3
 urllib3.disable_warnings()
 
-# HTTP 请求头
 MARKET_HEADERS = {
     "Accept": "application/vnd.finance-web.v1+json",
     "Accept-Language": "zh-CN,zh;q=0.9",
     "Origin": "https://gushitong.baidu.com",
     "Referer": "https://gushitong.baidu.com/",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
 
@@ -31,11 +28,8 @@ def fetch_global_indices():
     try:
         session = requests.Session()
         session.headers.update(MARKET_HEADERS)
-        
-        # 初始化会话
         session.get("https://gushitong.baidu.com/index/ab-000001", timeout=10, verify=False)
         
-        # 获取亚洲和美洲市场
         for market in ["asia", "america"]:
             url = f"https://finance.pae.baidu.com/api/getbanner?market={market}&finClientType=pc"
             response = session.get(url, timeout=15, verify=False)
@@ -49,34 +43,21 @@ def fetch_global_indices():
                         "change_percent": item["ratio"]
                     })
         
-        # 获取创业板指
         response = session.get(
             "https://finance.pae.baidu.com/vapi/v1/getquotation",
             params={
-                "srcid": "5353",
-                "all": "1",
-                "pointType": "string",
-                "group": "quotation_index_minute",
-                "query": "399006",
-                "code": "399006",
-                "market_type": "ab",
-                "newFormat": "1",
-                "name": "创业板指",
-                "finClientType": "pc"
+                "srcid": "5353", "all": "1", "pointType": "string",
+                "group": "quotation_index_minute", "query": "399006",
+                "code": "399006", "market_type": "ab", "newFormat": "1",
+                "name": "创业板指", "finClientType": "pc"
             },
-            timeout=15,
-            verify=False
+            timeout=15, verify=False
         )
         
         data = response.json()
         if str(data.get("ResultCode")) == "0":
             cur = data["Result"]["cur"]
-            chinext = {
-                "name": "创业板指",
-                "value": cur["price"],
-                "change_percent": cur["ratio"]
-            }
-            # 插入到第三位
+            chinext = {"name": "创业板指", "value": cur["price"], "change_percent": cur["ratio"]}
             if len(indices) >= 2:
                 indices.insert(2, chinext)
             else:
@@ -100,19 +81,12 @@ def fetch_intraday_index(count=20):
         response = session.get(
             "https://finance.pae.baidu.com/vapi/v1/getquotation",
             params={
-                "srcid": "5353",
-                "all": "1",
-                "pointType": "string",
-                "group": "quotation_index_minute",
-                "query": "000001",
-                "code": "000001",
-                "market_type": "ab",
-                "newFormat": "1",
-                "name": "上证指数",
-                "finClientType": "pc"
+                "srcid": "5353", "all": "1", "pointType": "string",
+                "group": "quotation_index_minute", "query": "000001",
+                "code": "000001", "market_type": "ab", "newFormat": "1",
+                "name": "上证指数", "finClientType": "pc"
             },
-            timeout=15,
-            verify=False
+            timeout=15, verify=False
         )
         
         data = response.json()
@@ -125,7 +99,6 @@ def fetch_intraday_index(count=20):
                 if len(parts) >= 6:
                     volume = round(float(parts[4]) / 10000, 2)
                     turnover = round(float(parts[5]) / 100000000, 2)
-                    
                     points.append({
                         "time": parts[0],
                         "price": parts[1],
@@ -153,15 +126,10 @@ def fetch_volume_trend(days=7):
         response = session.get(
             "https://finance.pae.baidu.com/sapi/v1/metrictrend",
             params={
-                "financeType": "index",
-                "market": "ab",
-                "code": "000001",
-                "targetType": "market",
-                "metric": "amount",
-                "finClientType": "pc"
+                "financeType": "index", "market": "ab", "code": "000001",
+                "targetType": "market", "metric": "amount", "finClientType": "pc"
             },
-            timeout=15,
-            verify=False
+            timeout=15, verify=False
         )
         
         data = response.json()
@@ -192,19 +160,19 @@ def fetch_volume_trend(days=7):
 
 
 class handler(BaseHTTPRequestHandler):
-    def do_OPTIONS(self):
+    def _send_json(self, data):
         self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    
+    def do_OPTIONS(self):
+        self._send_json({})
     
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
         action = params.get('action', [''])[0]
@@ -213,26 +181,19 @@ class handler(BaseHTTPRequestHandler):
         
         try:
             if action == 'indices':
-                indices = fetch_global_indices()
-                result = {"success": True, "data": indices}
-            
+                result = {"success": True, "data": fetch_global_indices()}
             elif action == 'intraday':
                 count = int(params.get('count', ['20'])[0])
-                points = fetch_intraday_index(count)
-                result = {"success": True, "data": points}
-            
+                result = {"success": True, "data": fetch_intraday_index(count)}
             elif action == 'volume':
                 days = int(params.get('days', ['7'])[0])
-                volumes = fetch_volume_trend(days)
-                result = {"success": True, "data": volumes}
-            
+                result = {"success": True, "data": fetch_volume_trend(days)}
             else:
                 result = {"success": False, "message": f"未知操作: {action}"}
-        
         except Exception as e:
             result = {"success": False, "message": str(e)}
         
-        self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+        self._send_json(result)
     
     def do_POST(self):
         self.do_GET()

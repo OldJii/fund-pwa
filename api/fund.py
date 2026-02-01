@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-基金数据代理 API
-解决浏览器 CORS 跨域问题
+基金数据代理 API - Vercel Serverless Function
 """
 
+from http.server import BaseHTTPRequestHandler
 import json
 import re
 import time
 from datetime import datetime, timedelta
-from http.server import BaseHTTPRequestHandler
 from urllib.parse import parse_qs, urlparse
-import requests
 
-# 禁用 SSL 警告
+import requests
 import urllib3
 urllib3.disable_warnings()
 
@@ -23,26 +21,14 @@ FUND_HEADERS = {
     "Content-Type": "application/json",
     "Origin": "https://www.fund123.cn",
     "Referer": "https://www.fund123.cn/fund",
-    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-# 全局会话和 CSRF Token 缓存
-_session = None
-_csrf_token = ""
-_token_time = 0
 
-def get_session():
-    """获取或创建 HTTP 会话"""
-    global _session, _csrf_token, _token_time
-    
-    # Token 有效期 5 分钟
-    if _session and _csrf_token and (time.time() - _token_time) < 300:
-        return _session, _csrf_token
-    
-    _session = requests.Session()
-    
+def get_csrf_token(session):
+    """获取 CSRF Token"""
     try:
-        response = _session.get(
+        response = session.get(
             "https://www.fund123.cn/fund",
             headers=FUND_HEADERS,
             timeout=15,
@@ -50,17 +36,16 @@ def get_session():
         )
         token_match = re.findall(r'"csrf":"([^"]+)"', response.text)
         if token_match:
-            _csrf_token = token_match[0]
-            _token_time = time.time()
+            return token_match[0]
     except Exception as e:
-        print(f"初始化会话失败: {e}")
-    
-    return _session, _csrf_token
+        print(f"获取 CSRF 失败: {e}")
+    return ""
 
 
 def search_fund(code):
     """搜索基金"""
-    session, csrf = get_session()
+    session = requests.Session()
+    csrf = get_csrf_token(session)
     
     try:
         response = session.post(
@@ -84,10 +69,8 @@ def search_fund(code):
     return {"success": False, "message": "未找到基金"}
 
 
-def fetch_fund_detail(code):
+def fetch_fund_detail(session, code):
     """获取基金日涨幅"""
-    session, _ = get_session()
-    
     try:
         url = f"https://www.fund123.cn/matiaria?fundCode={code}"
         response = session.get(url, headers=FUND_HEADERS, timeout=15, verify=False)
@@ -107,19 +90,14 @@ def fetch_fund_detail(code):
     return {"daily_change": "N/A"}
 
 
-def fetch_fund_trend(fund_key):
+def fetch_fund_trend(session, csrf, fund_key):
     """获取基金 30 天趋势"""
-    session, csrf = get_session()
-    
     try:
         response = session.post(
             "https://www.fund123.cn/api/fund/queryFundQuotationCurves",
             headers=FUND_HEADERS,
             params={"_csrf": csrf},
-            json={
-                "productId": fund_key,
-                "dateInterval": "ONE_MONTH"
-            },
+            json={"productId": fund_key, "dateInterval": "ONE_MONTH"},
             timeout=15,
             verify=False
         )
@@ -132,7 +110,6 @@ def fetch_fund_trend(fund_key):
         if not points:
             return {}
         
-        # 分析趋势
         movements = []
         prev_rate = None
         for point in points:
@@ -142,7 +119,7 @@ def fetch_fund_trend(fund_key):
                 movements.append((direction, curr_rate))
             prev_rate = curr_rate
         
-        movements = movements[::-1]  # 反转为最新在前
+        movements = movements[::-1]
         
         if not movements:
             return {}
@@ -152,7 +129,6 @@ def fetch_fund_trend(fund_key):
         start_rate = movements[0][1]
         monthly_change = f"{round(start_rate * 100, 2)}%"
         
-        # 计算连涨/跌
         streak_count = 1
         streak_direction = movements[0][0]
         end_rate = 0
@@ -181,10 +157,8 @@ def fetch_fund_trend(fund_key):
     return {}
 
 
-def fetch_fund_estimate(fund_key):
+def fetch_fund_estimate(session, csrf, fund_key):
     """获取基金实时估值"""
-    session, csrf = get_session()
-    
     try:
         today = datetime.now().strftime("%Y-%m-%d")
         tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
@@ -222,6 +196,9 @@ def fetch_fund_estimate(fund_key):
 
 def fetch_fund_valuation(code, fund_key):
     """获取基金完整估值数据"""
+    session = requests.Session()
+    csrf = get_csrf_token(session)
+    
     result = {
         "code": code,
         "fund_key": fund_key,
@@ -235,35 +212,32 @@ def fetch_fund_valuation(code, fund_key):
         "monthly_change": "0%"
     }
     
-    # 获取日涨幅
-    detail = fetch_fund_detail(code)
+    detail = fetch_fund_detail(session, code)
     result.update(detail)
     
-    # 获取趋势数据
-    trend = fetch_fund_trend(fund_key)
+    trend = fetch_fund_trend(session, csrf, fund_key)
     result.update(trend)
     
-    # 获取实时估值
-    estimate = fetch_fund_estimate(fund_key)
+    estimate = fetch_fund_estimate(session, csrf, fund_key)
     result.update(estimate)
     
     return result
 
 
 class handler(BaseHTTPRequestHandler):
-    def do_OPTIONS(self):
+    def _send_json(self, data):
         self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+    
+    def do_OPTIONS(self):
+        self._send_json({})
     
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
         parsed = urlparse(self.path)
         params = parse_qs(parsed.query)
         action = params.get('action', [''])[0]
@@ -273,10 +247,10 @@ class handler(BaseHTTPRequestHandler):
         try:
             if action == 'search':
                 code = params.get('code', [''])[0]
-                if code:
+                if code and len(code) == 6:
                     result = search_fund(code)
                 else:
-                    result = {"success": False, "message": "缺少基金代码"}
+                    result = {"success": False, "message": "请输入6位基金代码"}
             
             elif action == 'valuation':
                 code = params.get('code', [''])[0]
@@ -287,7 +261,6 @@ class handler(BaseHTTPRequestHandler):
                     result = {"success": False, "message": "缺少参数"}
             
             elif action == 'batch_valuation':
-                # 批量获取估值，参数格式: funds=code1:key1,code2:key2
                 funds_str = params.get('funds', [''])[0]
                 if funds_str:
                     valuations = []
@@ -307,7 +280,7 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             result = {"success": False, "message": str(e)}
         
-        self.wfile.write(json.dumps(result, ensure_ascii=False).encode('utf-8'))
+        self._send_json(result)
     
     def do_POST(self):
         self.do_GET()
